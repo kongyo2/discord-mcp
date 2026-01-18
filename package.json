@@ -1,6 +1,6 @@
 {
   "name": "@kongyo2/discord-webhook-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server for Discord Webhook integration",
   "type": "module",
   "main": "dist/index.js",
