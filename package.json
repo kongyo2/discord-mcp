@@ -28,6 +28,10 @@
     "model-context-protocol"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kongyo2/discord-mcp.git"
+  },
   "engines": {
     "node": ">=18"
   },
