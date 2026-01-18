@@ -1,11 +1,14 @@
 {
-  "name": "discord-webhook-mcp-server",
+  "name": "@kongyo2/discord-webhook-mcp",
   "version": "1.0.0",
   "description": "MCP server for Discord Webhook integration",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "discord-webhook-mcp-server": "dist/index.js"
+    "discord-webhook-mcp": "dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "dist"
