@@ -49,12 +49,14 @@ server.registerTool(
 content、embedsのいずれか最低1つが必要です。
 環境変数DISCORD_WEBHOOK_URLに設定されたWebhookを使用します。
 
+⚠️ レート制限: 30メッセージ/分/チャンネル
+
 Args:
   - content (string, optional): メッセージ内容（1-2000文字）
   - username (string, optional): Webhookのユーザー名を上書き（最大80文字）
   - avatar_url (string, optional): Webhookのアバター画像をURLで指定
   - tts (boolean, optional): テキスト読み上げ（TTS）メッセージとして送信（デフォルト: false）
-  - embeds (array, optional): Embedの配列（最大10個、リッチコンテンツ用）
+  - embeds (array, optional): Embedの配列（最大10個、合計6000文字以内）
   - allowed_mentions (object, optional): 許可されたメンション設定
   - thread_id (string, optional): 送信先スレッドID（指定したスレッドに送信、スレッドは自動アーカイブ解除）
   - thread_name (string, optional): 作成するスレッド名（フォーラム/メディアチャンネルのみで新しいスレッドを作成、最大100文字）
@@ -75,13 +77,14 @@ Examples:
 Error Handling:
   - "Validation error: content/embeds - content、embeds のうち最低1つを指定してください"
   - "Discord Webhook error: 400 Bad Request - Invalid webhook URL"
-  - "Discord Webhook error: 404 Not Found - Webhook not found"`,
+  - "Discord Webhook error: 404 Not Found - Webhook not found"
+  - "Discord Webhook error: レート制限に達しました" - 429エラー時、retry-after秒後に再試行`,
     inputSchema: SendMessageSchema,
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   },
   async (params: SendMessageInput) => {
@@ -161,10 +164,12 @@ server.registerTool(
 content、embedsのいずれか最低1つが必要です。
 環境変数DISCORD_WEBHOOK_URLに設定されたWebhookを使用します。
 
+⚠️ レート制限: 30リクエスト/分/チャンネル
+
 Args:
   - message_id (string, required): 編集するメッセージID
   - content (string, optional): 新しいメッセージ内容（1-2000文字）
-  - embeds (array, optional): 新しいEmbedの配列（最大10個）
+  - embeds (array, optional): 新しいEmbedの配列（最大10個、合計6000文字以内）
   - allowed_mentions (object, optional): 許可されたメンション設定
 
 Returns:
@@ -181,13 +186,14 @@ Examples:
 Error Handling:
   - "Validation error: content/embeds - content、embeds のうち最低1つを指定してください"
   - "Discord Webhook error: 404 Not Found - Message not found"
-  - "Discord Webhook error: 400 Bad Request - Invalid message ID"`,
+  - "Discord Webhook error: 400 Bad Request - Invalid message ID"
+  - "Discord Webhook error: レート制限に達しました" - 429エラー時、retry-after秒後に再試行`,
     inputSchema: EditMessageSchema,
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: true,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   },
   async (params: EditMessageInput) => {
@@ -216,30 +222,31 @@ Error Handling:
     // メッセージ編集
     const { result, error } = await editDiscordMessage(params.message_id, payload);
 
-    if (error) {
+    if (error || !result) {
       return {
         content: [
           {
             type: "text",
-            text: `エラー: ${formatError(error)}`,
+            text: error
+              ? `エラー: ${formatError(error)}`
+              : "エラー: メッセージの編集に失敗しました",
           },
         ],
         isError: true,
       };
     }
 
-    const messageInfo = result;
     return {
       content: [
         {
           type: "text",
-          text: `メッセージを編集しました\nID: ${messageInfo.id}`,
+          text: `メッセージを編集しました\nID: ${result.id}`,
         },
       ],
       structuredContent: {
         success: true,
-        message_id: messageInfo.id,
-        timestamp: messageInfo.timestamp,
+        message_id: result.id,
+        timestamp: result.timestamp,
       },
     };
   }
@@ -255,6 +262,9 @@ server.registerTool(
 
 環境変数DISCORD_WEBHOOK_URLに設定されたWebhookを使用します。
 
+⚠️ レート制限: 30リクエスト/分/チャンネル
+⚠️ この操作は取り消せません。
+
 Args:
   - message_id (string, required): 削除するメッセージID
 
@@ -269,13 +279,14 @@ Examples:
 
 Error Handling:
   - "Discord Webhook error: 404 Not Found - Message not found"
-  - "Discord Webhook error: 400 Bad Request - Invalid message ID"`,
+  - "Discord Webhook error: 400 Bad Request - Invalid message ID"
+  - "Discord Webhook error: レート制限に達しました" - 429エラー時、retry-after秒後に再試行`,
     inputSchema: DeleteMessageSchema,
     annotations: {
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: true,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   },
   async (params: DeleteMessageInput) => {

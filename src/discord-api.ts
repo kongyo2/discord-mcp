@@ -29,12 +29,26 @@ export function isWebhookError(
 export function formatError(error: DiscordWebhookError): string {
   switch (error.type) {
     case "webhook_error":
+      if (error.status === 429) {
+        const retryMsg = error.retryAfter
+          ? `\n${error.retryAfter}秒後に再試行してください。`
+          : "\nしばらく待ってから再試行してください。";
+        return `Discord Webhook error: レート制限に達しました (30メッセージ/分/チャンネル)${retryMsg}`;
+      }
       return `Discord Webhook error: ${error.status} ${error.statusText}\n${error.body}`;
     case "validation_error":
       return `Validation error: ${error.field} - ${error.message}`;
     case "unknown_error":
       return `Unknown error: ${error.message}`;
   }
+}
+
+// APIエラー情報の型
+interface ApiErrorInfo {
+  status: number;
+  statusText: string;
+  body: string;
+  retryAfter?: number;
 }
 
 // APIリクエスト用のヘルパー関数
@@ -56,13 +70,21 @@ async function makeRequest<T>(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(
-      JSON.stringify({
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText,
-      })
-    );
+    const errorInfo: ApiErrorInfo = {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorText,
+    };
+
+    // レート制限の場合、retry-afterヘッダーを取得
+    if (response.status === 429) {
+      const retryAfter = response.headers.get("retry-after");
+      if (retryAfter) {
+        errorInfo.retryAfter = parseInt(retryAfter, 10);
+      }
+    }
+
+    throw new Error(JSON.stringify(errorInfo));
   }
 
   // DELETE の場合はレスポンスボディがない場合がある
@@ -77,12 +99,13 @@ async function makeRequest<T>(
 function convertError(error: unknown): DiscordWebhookError {
   if (error instanceof Error && error.message.startsWith("{")) {
     try {
-      const parsed = JSON.parse(error.message);
+      const parsed = JSON.parse(error.message) as ApiErrorInfo;
       return {
         type: "webhook_error",
         status: parsed.status,
         statusText: parsed.statusText,
         body: parsed.body,
+        retryAfter: parsed.retryAfter,
       };
     } catch {
       return {
@@ -135,14 +158,14 @@ export async function editDiscordMessage(
     embeds?: Embed[];
     allowed_mentions?: AllowedMentions;
   }
-): Promise<{ result: DiscordMessageResponse; error?: DiscordWebhookError }> {
+): Promise<{ result: DiscordMessageResponse | null; error?: DiscordWebhookError }> {
   const url = new URL(`${WEBHOOK_URL!}/messages/${messageId}`);
 
   try {
     const result = await makeRequest<DiscordMessageResponse>(url.toString(), "PATCH", payload);
     return { result };
   } catch (error) {
-    return { result: null as any, error: convertError(error) };
+    return { result: null, error: convertError(error) };
   }
 }
 

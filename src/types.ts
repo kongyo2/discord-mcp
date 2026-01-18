@@ -11,7 +11,7 @@ export interface DiscordMessageResponse {
 }
 
 export type DiscordWebhookError =
-  | { type: "webhook_error"; status: number; statusText: string; body: string }
+  | { type: "webhook_error"; status: number; statusText: string; body: string; retryAfter?: number }
   | { type: "validation_error"; field: string; message: string }
   | { type: "unknown_error"; message: string };
 
